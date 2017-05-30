@@ -1,5 +1,5 @@
 <?php
-	
+
 	include 'confing.php';
 
 	$username = mysql_real_escape_string(htmlentities($_REQUEST['username']));
@@ -7,8 +7,9 @@
 	$email = mysql_real_escape_string(htmlentities($_REQUEST['email']));
 	$firstname = mysql_real_escape_string(htmlentities($_REQUEST['firstname']));
 	$lastname = mysql_real_escape_string(htmlentities($_REQUEST['lastname']));
-	$encoded_image = mysql_real_escape_string(htmlentities($_REQUEST['picture']));
+	$encoded_image = $_REQUEST['picture'];
 	$phonenumber = mysql_real_escape_string(htmlentities($_REQUEST['phonenumber']));
+
 
 	if( isset($username) && isset($password) && isset($email) && isset($firstname) && isset($lastname) && isset($encoded_image) && isset($phonenumber) )
 	{
@@ -46,8 +47,13 @@
 
 			$decoded_image = base64_decode($encoded_image);
 
-			$image_name = $username . "_" . $email . ".png";
+			$image_name = $username . "_" . $phonenumber . ".png";
+			$path_folder = 'images/' . $username;
 			$path = 'images/' . $username . "/" . $image_name;
+
+			if (!file_exists($path_folder)) {
+			    mkdir($path_folder, 0777, true);
+			}
 
 			$file = fopen($path, 'wb');
 
