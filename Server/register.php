@@ -11,7 +11,7 @@
 	$phonenumber = mysql_real_escape_string(htmlentities($_REQUEST['phonenumber']));
 
 
-	if( isset($username) && isset($password) && isset($email) && isset($firstname) && isset($lastname) && isset($encoded_image) && isset($phonenumber) )
+	if( isset($_REQUEST['username']) && isset($_REQUEST['password']) && isset($_REQUEST['email']) && isset($_REQUEST['firstname']) && isset($_REQUEST['lastname']) && isset($_REQUEST['picture']) && isset($_REQUEST['phonenumber']) )
 	{
 
 		//prvo ispitujemo da li postoji neko na tu email adresu i da li je je slobodan taj email
@@ -65,12 +65,14 @@
 
 				if($sql)
 				{
-					echo "sucess";
+					//sucess
+					echo "1";
 				}
 
 				else
 				{
-					echo "failed";
+					//faild
+					echo "-1";
 				}
 			}
 		}
@@ -79,19 +81,22 @@
 		{
 			if($email_exist)
 			{
-				echo "zauzeta email adresa";
+				//zauzeta email adresa
+				echo "-2";
 			}
 
 			else if($username_exist)
 			{
-				echo "zauzet username";
+				//zauzet username
+				echo "-3";
 			}
 		}
 	}
 
 	else
 	{
-		echo "nije sve poslato";
+		//nije sve poslato
+		echo "-4";
 	}
 
 ?>
