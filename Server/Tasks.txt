@@ -1,0 +1,3 @@
+1) Napraviti bazu prijateljstva (DONE)
+2) Skripta za upis prijatelja
+3) Skripta za vracanje svih registrovanih igraca (vracam samo lat i lon igraca koje nema za prijatelja) i skripta za vracanje svih prijatelja (DONE)

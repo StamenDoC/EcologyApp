@@ -61,7 +61,7 @@
 
 			if($is_written > 0)
 			{
-				$sql = mysql_query("INSERT INTO `users` VALUES ('','$username','$password_code','$email','$firstname','$lastname','$path','$phonenumber')");
+				$sql = mysql_query("INSERT INTO `users` (`Username`,`Password`,`Email`,`FirstName`,`LastName`,`Avatar`,`PhoneNumber`) VALUES ($username','$password_code','$email','$firstname','$lastname','$path','$phonenumber')");
 
 				if($sql)
 				{
