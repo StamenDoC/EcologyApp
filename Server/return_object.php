@@ -49,7 +49,7 @@
 
 		else if($return_type == "radius")
 		{
-			$sql = mysql_query("SELECT * FROM `object` WHERE `Type`='$value_search' AND `Id_user`!='$player_id'");
+			$sql = mysql_query("SELECT * FROM `object` WHERE `Id_user`!='$player_id'");
 
 			if(mysql_num_rows($sql) > 0)
 			{
@@ -75,6 +75,27 @@
 				
 			}
 
+		}
+
+		else if($return_type == "all")
+		{
+			$sql = mysql_query("SELECT * FROM `object` WHERE `Id_user`!='$player_id'");
+
+			if(mysql_num_rows($sql) > 0)
+			{
+				while(($row = mysql_fetch_assoc($sql)) !== false)
+				{
+
+					$return_object[] = array(
+
+						'Description'	=> $row['Description'], 
+						'Image' 		=> $row['Image'],
+						'Type' 			=> $row['Type'],
+						'Longitude' 	=> $row['Longitude'],
+						'Latitude' 		=> $row['Latitude'],
+					);
+				}
+			}
 		}
 
 		echo json_encode($return_object);
