@@ -88,8 +88,6 @@
 						$id_player_db = $row['Id_user1'];
 					}
 
-					echo $id_player_db;
-
 					//ovde sada za tog igraca vadimo sve informacije (moglo je da se napravi slozeniji upit i da se zavrsi sve u jednom upitu gore ali ae da vidimo da li ce ovo sve da radi kako treba posle ide optimizacija)
 
 					$sql1 = mysql_query("SELECT * FROM `users` WHERE `Status`='$status' AND `Id`='$id_player_db'");
