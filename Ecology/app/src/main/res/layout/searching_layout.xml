@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Search options: "
+        android:textColor="#3396FF"
+        android:textStyle="bold"
+        android:textSize="30sp"
+        android:layout_margin="5dp"/>
+
+    <RadioGroup
+        android:id="@+id/searchToolsGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/typeRadio"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Type searching"
+            android:textSize="20sp"
+            android:padding="5dp"/>
+
+        <RadioButton
+            android:id="@+id/radiusRadio"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="20sp"
+            android:padding="5dp"
+            android:text="Radius searching"/>
+
+    </RadioGroup>
+
+    <RadioGroup
+        android:id="@+id/ecProblemType"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:padding="3dp">
+        <RadioButton
+            android:id="@+id/typeProblemSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#128523"
+            android:text="Small"
+            android:textSize="20sp"/>
+        <RadioButton
+            android:id="@+id/typeProblemMedium"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#128523"
+            android:text="Medium"
+            android:textSize="20sp"/>
+        <RadioButton
+            android:id="@+id/typeProblemLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#128523"
+            android:text="Large"
+            android:textSize="20sp"/>
+
+    </RadioGroup>
+
+
+    <LinearLayout
+        android:id="@+id/radiusLinear"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#128523"
+            android:textSize="20sp"
+            android:layout_margin="5dp"
+            android:text="Search radius: "/>
+
+        <EditText
+            android:id="@+id/metersForSearch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ems="5"
+            android:layout_margin="5dp"
+            android:hint="In meters"/>
+
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/searchButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:layout_gravity="end"
+        android:text="Search" />
+
+
+</LinearLayout>

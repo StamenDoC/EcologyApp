@@ -1,3 +1,10 @@
+STAMEN TASK:
+
 1) Napraviti bazu prijateljstva (DONE)
 2) Skripta za upis prijatelja
 3) Skripta za vracanje svih registrovanih igraca (vracam samo lat i lon igraca koje nema za prijatelja) i skripta za vracanje svih prijatelja (DONE)
+
+STEVAN TASK:
+
+1) Prilikom prvog paljenja app, izbacuje samo da se dozvoli koriscenje usluge lokacije ali ne i ukoliko je ova usluga iskljucena da se i ukljuci, cak i ako je ukljucena ne prikaze ti svoju lokaciju
+2) Slika prilikom registrovanja

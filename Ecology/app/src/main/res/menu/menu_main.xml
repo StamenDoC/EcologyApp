@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item android:id="@+id/view_all" android:title="@string/add_friend"
+        android:orderInCategory="100" app:showAsAction="always" android:icon="@drawable/planet32p"
+        />
+    <item android:id="@+id/view_friends" android:title="@string/add_friend"
+        android:orderInCategory="100" app:showAsAction="always" android:icon="@drawable/friendship32p"
+        />
+    <item android:id="@+id/add_friend" android:title="@string/add_friend"
+        android:orderInCategory="100" app:showAsAction="always" android:icon="@drawable/friends32p"
+        />
+    <item android:id="@+id/add_object" android:title="@string/add_object"
+        android:orderInCategory="100" app:showAsAction="always" android:icon="@drawable/add"
+        />
+
+</menu>

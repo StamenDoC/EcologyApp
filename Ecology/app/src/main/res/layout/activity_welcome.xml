@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.example.stevan.mosis.Welcome_Activity"
+    android:background="#d3ffce">
+
+
+    <ImageView
+        android:id="@+id/welcomeText"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/welcome_text"
+        android:layout_marginBottom="96dp"
+        android:layout_alignBottom="@+id/welcomeLogo"
+        android:layout_centerHorizontal="true" />
+
+    <ImageView
+        android:id="@+id/welcomeLogo"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/welcome_logo"
+        app:srcCompat="@drawable/welcome_logo"
+        tools:layout_editor_absoluteX="144dp"
+        tools:layout_editor_absoluteY="207dp"
+        android:layout_centerVertical="true"
+        android:layout_centerHorizontal="true" />
+</RelativeLayout>
