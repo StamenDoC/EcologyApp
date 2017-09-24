@@ -1,7 +1,7 @@
 <?php
 	/* VRACAMO INFORMACIJE IGRACA */
 
-	include 'confing.php';
+	include 'config.php';
 
 	function getDistanceFromLatLonInKm($lat1,$lon1,$lat2,$lon2) 
 	{
@@ -20,6 +20,8 @@
 
 	$player_lon = mysql_real_escape_string(htmlentities($_REQUEST['lon']));
 	$player_lat = mysql_real_escape_string(htmlentities($_REQUEST['lat']));
+
+	$status = "online";
 
 	$value_search = 50; // koliko metara
 
@@ -64,25 +66,30 @@
 
 							$m = $km * 1000;
 
-							if($value_search >= $m)
+							if($value_search <= $m)
 							{
 								$test_var = 1;
 
 								echo "1";
 
-								break;
+								return;
 							}
 						}
 					}
+					else
+					{
+						echo "-1";
+						return;
+					}
 
 					if($test_var == 1)
-						break;
+						return;
 				}
 				
 			}
 		}
 
-		else if($return_type == "object")
+		else if($type_search == "object")
 		{
 			$sql = mysql_query("SELECT `Longitude`,`Latitude` FROM `object` WHERE `Id_user`!='$player_id'");
 
@@ -94,19 +101,21 @@
 
 					$m = $km * 1000;
 
-					if($value_search >= $m)
+					if($value_search <= $m)
 					{
 						echo "1";
 
-						break;
+						return;
 					}
 				}
 				
 			}
+			else
+				echo "-1";
 
 		}
 
-		echo "-1";
+		
 	}
 
 	else
