@@ -4,6 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -37,8 +38,12 @@ import java.util.Map;
 public class LoginActivity extends AppCompatActivity  {
 
     public int userId;
+    private boolean isServiceStarted; // Da li je service vec pokrenut
+    private boolean isServiceEnabled; // Da li je service omogucen od strane korisnika
+    Intent service;
 
     private UserLoginTask mAuthTask = null;
+    SharedPreferences prefs;
 
     // UI references.
     private AutoCompleteTextView mUsernameView;
@@ -52,6 +57,32 @@ public class LoginActivity extends AppCompatActivity  {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_login);
+
+        prefs = getSharedPreferences("Logging info", MODE_PRIVATE);
+        service = new Intent(this, BackgroundService.class);
+        isServiceStarted = prefs.getBoolean("isServiceStarted", false);
+        isServiceEnabled = prefs.getBoolean("isServiceEnabled", true);
+        prefs.edit().putInt("settingCords", 0).apply();
+
+        if(isServiceStarted)
+        {
+
+        }
+        else
+        {
+            prefs.edit().putBoolean("isServiceStarted", false).apply();
+        }
+
+        if(isServiceEnabled)
+        {
+            prefs.edit().putInt("settingCords", 1).apply(); // Ako je servis omogucen, on vrsi update promene koordinata
+        }
+        else
+        {
+            prefs.edit().putBoolean("isServiceEnabled", false).apply();
+            prefs.edit().putInt("settingCords", 2).apply(); // Ako servis nije omogucen, update koordinata vrsi Main Activity
+        }
+
         // Set up the login form.
         mUsernameView = (AutoCompleteTextView) findViewById(R.id.username);
         mPasswordView = (EditText) findViewById(R.id.password);
@@ -221,16 +252,22 @@ public class LoginActivity extends AppCompatActivity  {
                             //finish();
                             Toast.makeText(LoginActivity.this, "Your username is incorrect!", Toast.LENGTH_SHORT).show();
                         }
-                        else
-                        {
-                            if(responseInt > 0)
-                            {
+                        else {
+                            if (responseInt > 0) {
                                 userId = responseInt;
                                 setPlayerStatus();
                             }
                             Toast.makeText(LoginActivity.this, "Successful login!", Toast.LENGTH_SHORT).show();
                             Intent mainIntent = new Intent(LoginActivity.this, MainActivity.class);
                             mainIntent.putExtra("userId", userId);
+                            prefs.edit().putInt("userId", userId).apply();
+                            System.out.println("Bool promenljive za servis: " + isServiceEnabled + " " + isServiceStarted);
+                            if (!isServiceStarted && isServiceEnabled)
+                            {
+                                startService(service);
+                            }
+
+
                             startActivity(mainIntent);
                             LoginActivity.this.finish();
                         }

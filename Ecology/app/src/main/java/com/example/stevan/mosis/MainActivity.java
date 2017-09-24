@@ -9,12 +9,14 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -57,6 +59,7 @@ import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.RelativeLayout;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -110,6 +113,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 
 import de.hdodenhof.circleimageview.CircleImageView;
@@ -145,6 +150,9 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
     private Map<Marker, MapObject> allObjectsMap = new HashMap<Marker, MapObject>();
     ProgressDialog dialog;
 
+    Switch toggleNotifications;
+    Intent service;
+
     Uri imageUri;
     String imageOfProblem;
     android.app.AlertDialog ecProblemAlert, searchDialog;
@@ -153,6 +161,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
     protected static final int SUCCESS_CONNECT = 0;
     protected static final int MESSAGE_READ = 1;
     protected final static int REQUEST_ENABLE_BT = 10;
+
+    SharedPreferences prefs;
 
     //---------------------------------------------------------------------------------------------
 
@@ -175,6 +185,10 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
     private ConnectedThread mConnectedThread;
 
     private boolean isThisDevice = false;
+
+    private Integer userId;
+    TimerTask timerTask;
+    Timer timer;
 
 
     IntentFilter filter;
@@ -226,6 +240,39 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
         usersArray = new ArrayList<User>();
         mapObjects = new ArrayList<MapObject>();
+
+        prefs = getSharedPreferences("Logging info", MODE_PRIVATE);
+        userId = prefs.getInt("userId", 0);
+        new GetUsersTask().execute(String.valueOf(userId), "friends");
+        toggleNotifications = (Switch) findViewById(R.id.notificationOnOff);
+        Boolean isServiceEnabled = prefs.getBoolean("isServiceEnabled", true);
+        if(isServiceEnabled)
+            toggleNotifications.setChecked(true);
+        else
+        {
+            toggleNotifications.setChecked(false);
+            final String[] longitude = {prefs.getString("currentLon", "")};
+            final String[] latitude = {prefs.getString("currentLat", "")};
+            if(!userId.equals(0) && !longitude[0].equals("") && !latitude[0].equals(""))
+            {
+                timerTask = new TimerTask() {
+                    @Override
+                    public void run() {
+                        longitude[0] = prefs.getString("currentLon", "");
+                        latitude[0] = prefs.getString("currentLat", "");
+                        new SetPlayerCordsTask().execute(String.valueOf(userId), longitude[0], latitude[0]);
+                    }
+                };
+
+                timer = new Timer();
+                Integer timePeriod = 30*1000;
+                timer.schedule(timerTask, timePeriod, timePeriod);
+            }
+
+        }
+
+
+        service = new Intent(this, BackgroundService.class);
 
         MY_UUID_INSECURE = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
         Log.i("MOJ UUID", MY_UUID_INSECURE.toString());
@@ -558,6 +605,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
             currLocationMarker.remove();
 
         myPosition = new LatLng(location.getLatitude(), location.getLongitude());
+        prefs.edit().putString("currentLon", String.valueOf(location.getLongitude())).apply();
+        prefs.edit().putString("currentLat", String.valueOf(location.getLatitude())).apply();
         MarkerOptions markerOptions = new MarkerOptions();
         markerOptions.position(myPosition);
         markerOptions.title("Current Position");
@@ -701,6 +750,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
             @Override
             public void onLocationChanged(final Location location) {
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 13));
+                prefs.edit().putString("currentLon", String.valueOf(location.getLongitude())).apply();
+                prefs.edit().putString("currentLat", String.valueOf(location.getLatitude())).apply();
                 //setPlayerCords((float)location.getLongitude(),(float) location.getLatitude());
             }
         });
@@ -862,40 +913,68 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
         return BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length, options);
     }
 
-    /*protected void setPlayerCords(final float lon, final float lat) {
-        Bundle extras = getIntent().getExtras();
-        if (extras != null) {
-            final int userIdInt = extras.getInt("userId");
+    public class SetPlayerCordsTask extends AsyncTask<String, Void, String> {
 
-            // Upisujemo u bazu podatke o trenutnoj poziciji korisnika pri promeni pozicije
+        @Override
+        protected void onPreExecute() {
+
+        }
+
+        @Override
+        protected String doInBackground(String... strings) {
 
             String urlAddress = "http://qosstamen.esy.es/Server/set_player_cords.php";
 
-            RequestQueue requestQueue = Volley.newRequestQueue(getApplicationContext());
-            StringRequest request = new StringRequest(StringRequest.Method.POST, urlAddress, new Response.Listener<String>() {
-                @Override
-                public void onResponse(String response) {
-                    //Log.i("Response from Main", response);
-                }
-            }, new Response.ErrorListener() {
-                @Override
-                public void onErrorResponse(VolleyError error) {
-                    Log.i("Error", error.toString());
-                }
-            }) {
-                @Override
-                protected Map<String, String> getParams() throws AuthFailureError {
-                    HashMap<String, String> hashMap = new HashMap<String, String>();
-                    hashMap.put("id", String.valueOf(userIdInt));
-                    hashMap.put("lon", String.valueOf(lon));
-                    hashMap.put("lat", String.valueOf(lat));
+            final String userId = strings[0];
+            final String longitude = strings[1];
+            final String latitude = strings[2];
 
-                    return hashMap;
-                }
-            };
-            requestQueue.add(request);
+            try {
+
+                RequestQueue requestQueue = Volley.newRequestQueue(getApplicationContext());
+                StringRequest request = new StringRequest(StringRequest.Method.POST, urlAddress, new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Log.i("Set cords response", response);
+
+                    }
+                }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Log.i("Error", error.toString());
+                    }
+                }) {
+                    @Override
+                    protected Map<String, String> getParams() throws AuthFailureError {
+                        HashMap<String, String> hashMap = new HashMap<String, String>();
+
+                        hashMap.put("id", userId);
+                        hashMap.put("lon", longitude);
+                        hashMap.put("lat", latitude);
+
+                        return hashMap;
+                    }
+                };
+
+                requestQueue.add(request);
+
+            } catch (Exception e) {
+
+            }
+
+            return null;
         }
-    }*/
+
+        @Override
+        protected void onProgressUpdate(Void... values) {
+            super.onProgressUpdate(values);
+        }
+
+        @Override
+        protected void onPostExecute(String aVoid) {
+
+        }
+    }
 
     // Upisujemo u bazu status korisnika
 
@@ -1171,6 +1250,45 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
         searchDialog.show();
 
+    }
+
+    public void OnNotificationsToggle(View view)
+    {
+        if(toggleNotifications.isChecked())
+        {
+            PackageManager pm  = this.getPackageManager();
+            ComponentName componentName = new ComponentName(this, BroadcastManager.class);
+            pm.setComponentEnabledSetting(componentName,PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP);
+            startService(service);
+            prefs.edit().putBoolean("isServiceStarted", true).apply();
+            prefs.edit().putBoolean("isServiceEnabled", true).apply();
+            timer.cancel();
+        }
+        else
+        {
+            PackageManager pm  = this.getPackageManager();
+            ComponentName componentName = new ComponentName(this, BroadcastManager.class);
+            pm.setComponentEnabledSetting(componentName,PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP);
+            //Toast.makeText(getApplicationContext(), "cancelled", Toast.LENGTH_LONG).show();
+            stopService(service);
+            prefs.edit().putBoolean("isServiceStarted", false).apply();
+            prefs.edit().putBoolean("isServiceEnabled", false).apply();
+            timerTask = new TimerTask() {
+                @Override
+                public void run() {
+                    String longitude = prefs.getString("currentLon", "");
+                    String latitude = prefs.getString("currentLat", "");
+                    new SetPlayerCordsTask().execute(String.valueOf(userId), longitude, latitude);
+                }
+            };
+
+            timer = new Timer();
+            Integer timePeriod = 30*1000;
+            timer.schedule(timerTask, timePeriod, timePeriod);
+        }
+        //prefs.edit().putBoolean("isService")
     }
 
     UUID uniqueId = UUID.randomUUID();
