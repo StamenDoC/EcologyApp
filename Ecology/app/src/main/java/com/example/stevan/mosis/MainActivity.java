@@ -117,13 +117,28 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
 
+import commands.Command;
+import commands.ui.CommandShowToast;
+import geo.GeoObj;
+
 import de.hdodenhof.circleimageview.CircleImageView;
+import gl.Color;
+import gl.GL1Renderer;
+import gl.GLCamera;
+import gl.GLFactory;
+import gl.scenegraph.MeshComponent;
+import gui.GuiSetup;
+import system.ArActivity;
+import system.DefaultARSetup;
+import util.Vec;
+import worldData.World;
 
 public class MainActivity extends ActionBarActivity implements OnMapReadyCallback, LocationListener, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, ActivityCompat.OnRequestPermissionsResultCallback {
 
     protected static final int REQUEST_CHECK_SETTINGS = 0x1;
     protected static final int REQUEST_READ_PHONE_STATE = 0x2;
     protected static final int TAKE_PICTURE = 0x3;
+    protected static final int MY_PERMISSIONS_REQUEST_CAMERA = 0x4;
     final static int REQ_WIDTH = 640;
     final static int REQ_HEIGHT = 480;
 
@@ -190,6 +205,9 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
     TimerTask timerTask;
     Timer timer;
 
+    ArrayList<GeoObj> arObjects;
+    public GLCamera camera;
+
 
     IntentFilter filter;
     BroadcastReceiver receiver;
@@ -240,6 +258,7 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
         usersArray = new ArrayList<User>();
         mapObjects = new ArrayList<MapObject>();
+        arObjects = new ArrayList<GeoObj>();
 
         prefs = getSharedPreferences("Logging info", MODE_PRIVATE);
         userId = prefs.getInt("userId", 0);
@@ -1845,6 +1864,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
     public class FindObjectsTask extends AsyncTask<String, Void, String> {
 
+        boolean test = false;
+
         @Override
         protected void onPreExecute() {
 
@@ -1879,6 +1900,9 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                             mapObjects.clear();
                             mMap.clear();
                             allObjectsMap.clear();
+                            arObjects.clear();
+                            if(jsonArray.length() > 0)
+                                test = true;
                             //Za svaki izvuceni ID izvuci sve objave
                             for (int i = 0; i < jsonArray.length(); i++) {
                                 JSONObject jsonObject = jsonArray.getJSONObject(i);
@@ -1891,11 +1915,12 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
                                 final MapObject mapObject = new MapObject(description, image, type, longitude, latitude);
 
-
-
                                 mapObjects.add(mapObject);
 
                                 MarkerOptions markerOptions = new MarkerOptions().position(new LatLng(latitude, longitude));
+
+                                GeoObj object = new GeoObj(latitude, longitude);
+                                arObjects.add(object);
 
                                 if(type.equals("mali"))
                                     markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.garbage_small_40p));
@@ -1928,6 +1953,106 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                             }
                             dialog.dismiss();
                             searchDialog.dismiss();
+
+                            if(test)
+                            {
+                                final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                                builder.setTitle("Clean the area");
+                                builder.setMessage("Do you want to clean area for points?");
+                                builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
+                                                != PackageManager.PERMISSION_GRANTED)
+                                        {
+                                            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
+                                                    Manifest.permission.CAMERA))
+                                            {
+
+                                            }
+                                            else {
+                                                ActivityCompat.requestPermissions(MainActivity.this,
+                                                        new String[]{Manifest.permission.CAMERA},
+                                                        MY_PERMISSIONS_REQUEST_CAMERA);
+                                            }
+                                        }
+                                        else
+                                        {
+
+                                            // Ako je omogucena kamera pokrece se AR sistem
+
+                                            ArActivity.startWithSetup(MainActivity.this, new DefaultARSetup() {
+
+                                                @Override
+                                                public void _b_addWorldsToRenderer(GL1Renderer renderer, GLFactory objectFactory, final GeoObj currentPosition) {
+
+                                                    final MeshComponent meshComponent = GLFactory.getInstance().newDiamond(null);
+
+                                                    meshComponent.setOnLongClickCommand(new Command() {
+                                                        @Override
+                                                        public boolean execute() {
+                                                            CommandShowToast.show(MainActivity.this, "Object picked!");
+
+                                                            // Podesiti da se objekat izgubi i prikazati osvajanje poena
+
+                                                            return true;
+                                                        }
+                                                    });
+
+                                                    for(int i = 0; i < arObjects.size(); i++)
+                                                    {
+                                                        spawnObj(arObjects.get(i), meshComponent);
+
+                                                    }
+
+                                                    renderer.addRenderElement(world);
+
+                                                }
+
+                                                @Override
+                                                public void _e2_addElementsToGuiSetup(GuiSetup guiSetup, Activity activity) {
+                                                    // addSpawnButtonToUI("Spawn Object", guiSetup);
+                                                }
+
+                                                @Override
+                                                public void addObjectsTo(GL1Renderer renderer, World world, GLFactory objectFactory) {
+                                                }
+
+                                                private void spawnObj(MeshComponent mesh){
+                                                    // Vec pos = camera.getGPSPositionVec();
+                                                    Vec pos = getCamera().getGPSPositionVec();
+
+                                                    Log.d("Placing tag", "Placing object at " + pos);
+                                                    GeoObj x = new GeoObj(pos.y, pos.x, pos.z);
+
+                                                    mesh.setPosition(new Vec(0,1,0));
+                                                    x.setComp(mesh);
+                                                    //CommandShowToast.show(myTargetActivity, "Object spawned" + x.getMySurroundGroup().getPosition());
+                                                    world.add(x);
+                                                }
+
+                                                private void spawnObj(final GeoObj pos, MeshComponent mesh) {
+                                                    GeoObj x = new GeoObj(pos);
+
+                                                    mesh.setPosition(Vec.getNewRandomPosInXYPlane(new Vec(), 0.1f, 1f));
+                                                    x.setComp(mesh);
+                                                    //CommandShowToast.show(myTargetActivity, "Object spawned at " + x.getMySurroundGroup().getPosition());
+                                                    world.add(x);
+                                                }
+
+                                            });
+                                        }
+                                    }
+                                });
+                                builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        dialog.dismiss();
+                                    }
+                                });
+                                AlertDialog alert = builder.create();
+                                alert.show();
+                            }
 
                         }
                         catch (Exception e)
@@ -1971,6 +2096,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
         @Override
         protected void onPostExecute(String aVoid) {
+
+
 
         }
     }
