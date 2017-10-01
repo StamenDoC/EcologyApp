@@ -3,7 +3,7 @@
 
 	// Prilikom ulaska u igru postavljamo ga na online, a pri izlasku postavljamo na offline (pause, stop....)
 
-	include 'confing.php';
+	include 'config.php';
 
 	$player_id = mysql_real_escape_string(htmlentities($_REQUEST['id']));
 	$player_status = $_REQUEST['status'];

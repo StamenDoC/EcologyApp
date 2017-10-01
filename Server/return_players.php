@@ -1,7 +1,7 @@
 <?php
 	/* VRACAMO INFORMACIJE IGRACA */
 
-	include 'confing.php';
+	include 'config.php';
 
 	$player_id = mysql_real_escape_string(htmlentities($_REQUEST['id']));
 	$return_type = mysql_real_escape_string(htmlentities($_REQUEST['type'])); //da li vracam sve registrovane igrace ili samo prijatelje
@@ -51,8 +51,8 @@
 
 							'Username' 		=> '', 
 							'Email' 		=> '',
-							'FirstName' 	=> '',
-							'LastName' 		=> '',
+							'FirstName' 	=> $row['FirstName'],
+							'LastName' 		=> $row['LastName'],
 							'Avatar' 		=> '',
 							'PhoneNumber' 	=> '',
 							'Longitude' 	=> $row['Longitude'],

@@ -1,7 +1,7 @@
 <?php
 	/* VRACAMO INFORMACIJE IGRACA */
 
-	include 'confing.php';
+	include 'config.php';
 
 	function getDistanceFromLatLonInKm($lat1,$lon1,$lat2,$lon2) 
 	{

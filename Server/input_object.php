@@ -1,7 +1,7 @@
 <?php
 	/* UBACUJEMO OBJEKAT */
 
-	include 'confing.php';
+	include 'config.php';
 
 	$player_id = mysql_real_escape_string(htmlentities($_REQUEST['id']));
 	$description = mysql_real_escape_string(htmlentities($_REQUEST['description']));

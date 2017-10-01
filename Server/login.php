@@ -1,6 +1,6 @@
 <?php
 
-	include 'confing.php';
+	include 'config.php';
 
 	$username = mysql_real_escape_string(htmlentities($_REQUEST['username']));
 	$password = mysql_real_escape_string(htmlentities($_REQUEST['password']));

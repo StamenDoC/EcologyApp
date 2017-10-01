@@ -1,7 +1,7 @@
 <?php
 	/* POSTAVLJAMO KORDINATE IGRACA */
 
-	include 'confing.php';
+	include 'config.php';
 
 	$player_id = mysql_real_escape_string(htmlentities($_REQUEST['id']));
 	$player_lon = mysql_real_escape_string(htmlentities($_REQUEST['lon']));
