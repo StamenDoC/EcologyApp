@@ -262,11 +262,6 @@ public class LoginActivity extends AppCompatActivity  {
                             mainIntent.putExtra("userId", userId);
                             prefs.edit().putInt("userId", userId).apply();
                             System.out.println("Bool promenljive za servis: " + isServiceEnabled + " " + isServiceStarted);
-                            if (!isServiceStarted && isServiceEnabled)
-                            {
-                                startService(service);
-                            }
-
 
                             startActivity(mainIntent);
                             LoginActivity.this.finish();

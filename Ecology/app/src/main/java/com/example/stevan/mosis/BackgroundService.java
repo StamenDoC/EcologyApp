@@ -35,6 +35,7 @@ public class BackgroundService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
+        Log.i("Intent onBind", intent.toString());
         return null;
     }
 
@@ -70,7 +71,7 @@ public class BackgroundService extends Service {
         Integer timePeriod = 30*1000;
         timer.schedule(timerTask, timePeriod, timePeriod);
 
-        return super.onStartCommand(intent, flags, startId);
+        return START_STICKY;
     }
 
     @Override

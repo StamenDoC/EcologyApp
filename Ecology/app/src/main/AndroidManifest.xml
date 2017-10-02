@@ -1,16 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.stevan.mosis"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.example.stevan.mosis">
+
+    <permission android:name="com.example.stevan.mosis.FRIEND_OR_OBJECT_CLOSE_PERM" />
 
     <!-- To auto-complete the email text field in the login form with the user's emails -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+
+    <provider
+        android:name=".GenericFileProvider"
+        android:authorities="com.example.stevan.mosis.provider"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/provider_paths"/>
+    </provider>
 
     <application
         android:allowBackup="true"
@@ -19,16 +31,15 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:replace="android:icon">
-
-        <meta-data android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBDLdW8Et3_eMKTh7VEwdwdpUaqc0JXGrY"/>
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyBDLdW8Et3_eMKTh7VEwdwdpUaqc0JXGrY" />
 
         <activity android:name=".MainActivity" />
         <activity
             android:name=".LoginActivity"
             android:label="@string/title_activity_login"
-            android:noHistory="false">
-        </activity>
+            android:noHistory="false"></activity>
         <activity
             android:name=".RegisterActivity"
             android:label="@string/title_activity_register"
@@ -45,17 +56,19 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".BackgroundService" />
+        <service
+            android:name=".BackgroundService"
+            android:enabled="true" />
 
-        <receiver android:name=".BroadcastManager">
-
+        <receiver
+            android:name=".BroadcastManager"
+            android:enabled="true">
             <intent-filter android:priority="1000000">
                 <action android:name="com.example.stevan.mosis.FRIEND_OR_OBJECT_CLOSE" />
             </intent-filter>
-
         </receiver>
 
-
+        <activity android:name=".Rankings"></activity>
     </application>
 
 </manifest>

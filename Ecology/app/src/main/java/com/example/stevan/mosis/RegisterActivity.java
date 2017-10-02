@@ -453,7 +453,6 @@ public class RegisterActivity extends AppCompatActivity implements LoaderCallbac
 
             @Override
         protected void onPostExecute(final Boolean success) {
-
         }
 
         @Override

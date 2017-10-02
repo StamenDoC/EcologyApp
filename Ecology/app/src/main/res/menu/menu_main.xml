@@ -14,5 +14,8 @@
     <item android:id="@+id/add_object" android:title="@string/add_object"
         android:orderInCategory="100" app:showAsAction="always" android:icon="@drawable/add"
         />
+    <item android:id="@+id/rankings" android:title="@string/rankings"
+        android:orderInCategory="100" app:showAsAction="ifRoom" android:icon="@drawable/ranking_32p"
+        />
 
 </menu>

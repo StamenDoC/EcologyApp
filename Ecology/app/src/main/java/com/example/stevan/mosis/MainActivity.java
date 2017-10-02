@@ -28,10 +28,12 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.os.StrictMode;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
@@ -139,6 +141,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
     protected static final int REQUEST_READ_PHONE_STATE = 0x2;
     protected static final int TAKE_PICTURE = 0x3;
     protected static final int MY_PERMISSIONS_REQUEST_CAMERA = 0x4;
+    protected static final int REQUEST_PERMISSION_WRITE_STORAGE = 0x5;
+    protected static final int REQUEST_PERMISSION_LOCATION = 0x6;
     final static int REQ_WIDTH = 640;
     final static int REQ_HEIGHT = 480;
 
@@ -204,14 +208,13 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
     private Integer userId;
     TimerTask timerTask;
     Timer timer;
+    Integer markerPressedCount = 0;
+    Boolean isServiceEnabled;
+    Boolean isServiceStarted;
+    ArrayList<Marker> markersToClear;
 
     ArrayList<GeoObj> arObjects;
-    public GLCamera camera;
-
-
-    IntentFilter filter;
-    BroadcastReceiver receiver;
-    String tag = "debugging";
+    MapObject object1;
 
     @Override
     protected void onResume() {
@@ -224,17 +227,77 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
             //                                          int[] grantResults)
             // to handle the case where the user grants the permission. See the documentation
             // for ActivityCompat#requestPermissions for more details.
+
             return;
         }
         if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.LOLLIPOP) {
             locationManager.requestLocationUpdates(provider, 400, 0, this);
         }
+
+        isServiceStarted = prefs.getBoolean("isServiceStarted", true);
+        if(isServiceStarted)
+        {
+            Log.i("Servis", "Gasim servis!");
+            PackageManager pm  = this.getPackageManager();
+            ComponentName componentName = new ComponentName(this, BroadcastManager.class);
+            pm.setComponentEnabledSetting(componentName,PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP);
+            //Toast.makeText(getApplicationContext(), "cancelled", Toast.LENGTH_LONG).show();
+            stopService(service);
+            prefs.edit().putBoolean("isServiceStarted", false).apply();
+        }
+
+        final String[] longitude = {prefs.getString("currentLon", "")};
+        final String[] latitude = {prefs.getString("currentLat", "")};
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                timerTask = new TimerTask() {
+                    @Override
+                    public void run() {
+                        longitude[0] = prefs.getString("currentLon", "");
+                        latitude[0] = prefs.getString("currentLat", "");
+                        new SetPlayerCordsTask().execute(String.valueOf(userId), longitude[0], latitude[0]);
+                        //new GetUsersTask().execute(String.valueOf(userId), "friends");
+                        new FindObjectsTask().execute(String.valueOf(userId), "radius", String.valueOf(50), String.valueOf(myPosition.longitude), String.valueOf(myPosition.latitude));
+                    }
+                };
+
+                timer = new Timer();
+                Integer timePeriod = 30*1000;
+                timer.schedule(timerTask, timePeriod, timePeriod);
+            }
+        }, 1500);
+
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         //locationManager.removeUpdates(this);
+        //timerTask.cancel();
+        //timer.cancel();
+        isServiceEnabled = prefs.getBoolean("isServiceEnabled", true);
+        if(isServiceEnabled)
+        {
+            Log.i("Servis", "Palim servis!");
+            //service = new Intent(this, BackgroundService.class);
+            PackageManager pm  = this.getPackageManager();
+            ComponentName componentName = new ComponentName(this, BroadcastManager.class);
+            pm.setComponentEnabledSetting(componentName,PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP);
+            startService(service);
+            prefs.edit().putBoolean("isServiceStarted", true).apply();
+            prefs.edit().putBoolean("isServiceEnabled", true).apply();
+            //timer.cancel();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
     }
 
     @Override
@@ -243,8 +306,9 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
         setPlayerStatus();
         unregisterReceiver(mReceiver);
+        //unregisterReceiver(receiver);
         //if(!mBluetoothAdapter.equals(null))
-            //mBluetoothAdapter.disable();
+        //mBluetoothAdapter.disable();
 
     }
 
@@ -256,42 +320,32 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_main);
 
+        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(builder.build());
+
+        prefs = getSharedPreferences("Logging info", MODE_PRIVATE);
+        service = new Intent(this, BackgroundService.class);
+
+
+        //receiver = new BroadcastManager();
+        //registerReceiver(receiver, new IntentFilter("com.example.stevan.mosis.FRIEND_OR_OBJECT_CLOSE"), null, null);
+
         usersArray = new ArrayList<User>();
         mapObjects = new ArrayList<MapObject>();
         arObjects = new ArrayList<GeoObj>();
+        markersToClear = new ArrayList<Marker>();
 
-        prefs = getSharedPreferences("Logging info", MODE_PRIVATE);
         userId = prefs.getInt("userId", 0);
         new GetUsersTask().execute(String.valueOf(userId), "friends");
         toggleNotifications = (Switch) findViewById(R.id.notificationOnOff);
-        Boolean isServiceEnabled = prefs.getBoolean("isServiceEnabled", true);
-        if(isServiceEnabled)
+        isServiceEnabled = prefs.getBoolean("isServiceEnabled", true);
+        if(isServiceEnabled) {
             toggleNotifications.setChecked(true);
+        }
         else
         {
             toggleNotifications.setChecked(false);
-            final String[] longitude = {prefs.getString("currentLon", "")};
-            final String[] latitude = {prefs.getString("currentLat", "")};
-            if(!userId.equals(0) && !longitude[0].equals("") && !latitude[0].equals(""))
-            {
-                timerTask = new TimerTask() {
-                    @Override
-                    public void run() {
-                        longitude[0] = prefs.getString("currentLon", "");
-                        latitude[0] = prefs.getString("currentLat", "");
-                        new SetPlayerCordsTask().execute(String.valueOf(userId), longitude[0], latitude[0]);
-                    }
-                };
-
-                timer = new Timer();
-                Integer timePeriod = 30*1000;
-                timer.schedule(timerTask, timePeriod, timePeriod);
-            }
-
         }
-
-
-        service = new Intent(this, BackgroundService.class);
 
         MY_UUID_INSECURE = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
         Log.i("MOJ UUID", MY_UUID_INSECURE.toString());
@@ -343,6 +397,24 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
             }
             location = locationManager.getLastKnownLocation(provider);
         }
+        else
+        {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                Log.i("Permisije", "NIJE DOPUSTIO");
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_PERMISSION_LOCATION);
+                //startActivityForResult(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS), 0);
+                //Toast.makeText(this, "NIJE DOPUSTIO123!", Toast.LENGTH_SHORT).show();
+
+                //createLocationRequest();
+            }
+        }
         buildGoogleApiClient();
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -373,7 +445,7 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                     @Override
                     public void run() {
                         showFoundedDevices(arrayAdapter);
-                        
+
                     }
                 }, 5000);
             }
@@ -428,6 +500,37 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
         builderSingle.show();
     }
 
+    public boolean isStoragePermissionGranted() {
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    == PackageManager.PERMISSION_GRANTED) {
+                Log.v("SAccepted","Permission is granted");
+                Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                File photo = new File(Environment.getExternalStorageDirectory(),  "Pic.jpg");
+                intent.putExtra(MediaStore.EXTRA_OUTPUT,
+                        Uri.fromFile(photo));
+                imageUri = Uri.fromFile(photo);
+                startActivityForResult(intent, TAKE_PICTURE);
+                return true;
+            } else {
+
+                Log.v("SAccepted","Permission is revoked");
+                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_PERMISSION_WRITE_STORAGE);
+                return false;
+            }
+        }
+        else { //permission is automatically granted on sdk<23 upon installation
+            Log.v("SAccepted","Permission is granted");
+            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            File photo = new File(Environment.getExternalStorageDirectory(),  "Pic.jpg");
+            intent.putExtra(MediaStore.EXTRA_OUTPUT,
+                    Uri.fromFile(photo));
+            imageUri = Uri.fromFile(photo);
+            startActivityForResult(intent, TAKE_PICTURE);
+            return true;
+        }
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater menuInflater = getMenuInflater();
@@ -455,12 +558,12 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                 new GetUsersTask().execute(idOfUser, "all");
                 return true;
             case R.id.add_object:
-                Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                File photo = new File(Environment.getExternalStorageDirectory(),  "Pic.jpg");
-                intent.putExtra(MediaStore.EXTRA_OUTPUT,
-                        Uri.fromFile(photo));
-                imageUri = Uri.fromFile(photo);
-                startActivityForResult(intent, TAKE_PICTURE);
+                isStoragePermissionGranted();
+                return true;
+            case R.id.rankings:
+                Intent rankingsIntent = new Intent(MainActivity.this, Rankings.class);
+                startActivity(rankingsIntent);
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -493,7 +596,7 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
             {
                 start();
                 Intent discoverableIntent =
-                    new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+                        new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
                 discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
                 startActivity(discoverableIntent);
                 boolean isStarted = mBluetoothAdapter.startDiscovery();
@@ -573,8 +676,6 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                     Log.e("Camera", e.toString());
                 }
             }
-
-
     }
 
     @Override
@@ -598,11 +699,11 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
             // to handle the case where the user grants the permission. See the documentation
             // for ActivityCompat#requestPermissions for more details.
             Log.i("Permisije", "NIJE DOPUSTIO");
+
+            //ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_PERMISSION_LOCATION);
             //startActivityForResult(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS), 0);
             //Toast.makeText(this, "NIJE DOPUSTIO123!", Toast.LENGTH_SHORT).show();
-            buildGoogleApiClient();
-            mGoogleClient.connect();
-            checkLocationPermission();
+
             //createLocationRequest();
         } else {
             Log.i("Permisije", "DOPUSTIO");
@@ -749,7 +850,9 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
         Location mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleClient);
         if(mLastLocation != null)
         {
+            Log.i("Location test", "11233");
             myPosition = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
+            new FindObjectsTask().execute(String.valueOf(userId), "radius", String.valueOf(50), String.valueOf(myPosition.longitude), String.valueOf(myPosition.latitude));
             MarkerOptions markerOptions = new MarkerOptions();
             markerOptions.position(myPosition);
             markerOptions.title("Current Position");
@@ -852,7 +955,26 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
                 }
                 break;
+            case REQUEST_PERMISSION_WRITE_STORAGE:
+                if ((grantResults.length > 0) && (grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+                    //TODO
+                    Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
+                    File photo = new File(Environment.getExternalStorageDirectory(),  "Pic.jpg");
+                    intent.putExtra(MediaStore.EXTRA_OUTPUT,
+                            Uri.fromFile(photo));
+                    imageUri = Uri.fromFile(photo);
+                    startActivityForResult(intent, TAKE_PICTURE);
+                }
+            case REQUEST_PERMISSION_LOCATION:
+                if ((grantResults.length > 0) && (grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+                    //TODO
+                    Log.i("OMOGUCIO", "DA");
+                    checkLocationPermission();
+                    buildGoogleApiClient();
+                    mGoogleClient.connect();
+
+                }
             default:
                 break;
 
@@ -1288,7 +1410,7 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
         {
             PackageManager pm  = this.getPackageManager();
             ComponentName componentName = new ComponentName(this, BroadcastManager.class);
-            pm.setComponentEnabledSetting(componentName,PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            pm.setComponentEnabledSetting(componentName,PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
                     PackageManager.DONT_KILL_APP);
             //Toast.makeText(getApplicationContext(), "cancelled", Toast.LENGTH_LONG).show();
             stopService(service);
@@ -1617,9 +1739,7 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
         @Override
         protected void onPreExecute() {
-            dialog = new ProgressDialog(MainActivity.this);
-            dialog.setMessage("Loading...");
-            dialog.show();
+
         }
 
         @Override
@@ -1725,8 +1845,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
                                 }
                             }
-                            //userArrayAdapter.notifyDataSetChanged();
-                            dialog.dismiss();
+                            userArrayAdapter.notifyDataSetChanged();
+                            //dialog.dismiss();
 
                         }
                         catch (Exception e)
@@ -1869,9 +1989,9 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
         @Override
         protected void onPreExecute() {
 
-            dialog = new ProgressDialog(MainActivity.this);
+            /*dialog = new ProgressDialog(MainActivity.this);
             dialog.setMessage("Loading...");
-            dialog.show();
+            dialog.show();*/
 
         }
 
@@ -1898,7 +2018,11 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
                             JSONArray jsonArray = new JSONArray(response);
                             mapObjects.clear();
-                            mMap.clear();
+                            for (Marker marker : markersToClear) {
+                                marker.remove();
+                            }
+                            markersToClear.clear();
+                            //mMap.clear();
                             allObjectsMap.clear();
                             arObjects.clear();
                             if(jsonArray.length() > 0)
@@ -1919,7 +2043,7 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
 
                                 MarkerOptions markerOptions = new MarkerOptions().position(new LatLng(latitude, longitude));
 
-                                GeoObj object = new GeoObj(latitude, longitude);
+                                final GeoObj object = new GeoObj(latitude, longitude);
                                 arObjects.add(object);
 
                                 if(type.equals("mali"))
@@ -1930,20 +2054,148 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                                     markerOptions.icon(BitmapDescriptorFactory.fromResource(R.drawable.garbage_truck_40p));
 
                                 Marker marker = mMap.addMarker(markerOptions);
+                                markersToClear.add(marker);
 
                                 allObjectsMap.put(marker, mapObject);
 
                                 mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
                                     @Override
-                                    public boolean onMarkerClick(Marker marker) {
+                                    public boolean onMarkerClick(final Marker marker) {
 
-                                        MapObject object = allObjectsMap.get(marker);
-                                        if(!object.equals(null))
+                                        markerPressedCount++;
+                                        if (markerPressedCount > 1)
                                         {
-                                            final Bitmap bitmap = decodeSampledBitmapFromString(object.getImage(), 75, 75);
-                                            mMap.setInfoWindowAdapter(new MyInfoWindowAdapter(MainActivity.this, object.getDescription(), bitmap, object.getType(), String.valueOf(object.getLon()), String.valueOf(object.getLat())));
-                                            marker.showInfoWindow();
-                                            return true;
+                                            markerPressedCount = 0;
+                                            if(test)
+                                            {
+                                                final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                                                builder.setTitle("Clean the trash");
+                                                builder.setMessage("Do you want to clean trash for points?");
+                                                builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                                                    @Override
+                                                    public void onClick(DialogInterface dialog, int which) {
+                                                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
+                                                                != PackageManager.PERMISSION_GRANTED)
+                                                        {
+                                                            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
+                                                                    Manifest.permission.CAMERA))
+                                                            {
+
+                                                            }
+                                                            else {
+                                                                ActivityCompat.requestPermissions(MainActivity.this,
+                                                                        new String[]{Manifest.permission.CAMERA},
+                                                                        MY_PERMISSIONS_REQUEST_CAMERA);
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+
+                                                            // Ako je omogucena kamera pokrece se AR sistem
+
+                                                            ArActivity.startWithSetup(MainActivity.this, new DefaultARSetup() {
+
+                                                                @Override
+                                                                public void _b_addWorldsToRenderer(GL1Renderer renderer, GLFactory objectFactory, final GeoObj currentPosition) {
+
+                                                                    final MeshComponent meshComponent = GLFactory.getInstance().newDiamond(null);
+
+                                                                    meshComponent.setOnLongClickCommand(new Command() {
+                                                                        @Override
+                                                                        public boolean execute() {
+                                                                            Log.i("OBJEKAT", object1.toString());
+                                                                            if(object1.getType().equals("mali"))
+                                                                            {
+                                                                                CommandShowToast.show(MainActivity.this, "You earned 10 points!");
+                                                                                new InputUsersPoints().execute(String.valueOf(userId), "10", String.valueOf(object1.getLon()), String.valueOf(object1.getLat()));
+
+                                                                            }
+                                                                            else if(object1.getType().equals("srednji"))
+                                                                            {
+                                                                                CommandShowToast.show(MainActivity.this, "You earned 20 points!");
+                                                                                new InputUsersPoints().execute(String.valueOf(userId), "20", String.valueOf(object1.getLon()), String.valueOf(object1.getLat()));
+
+
+                                                                            }
+                                                                            else if(object1.getType().equals("veliki"))
+                                                                            {
+                                                                                CommandShowToast.show(MainActivity.this, "You earned 30 points!");
+                                                                                new InputUsersPoints().execute(String.valueOf(userId), "30", String.valueOf(object1.getLon()), String.valueOf(object1.getLat()));
+                                                                                markersToClear.add(marker);
+                                                                            }
+
+                                                                            // Podesiti da se objekat izgubi i prikazati osvajanje poena
+                                                                            meshComponent.setScale(new Vec(0,0,0));
+
+                                                                            return true;
+                                                                        }
+                                                                    });
+
+                                                                    for(int i = 0; i < arObjects.size(); i++)
+                                                                    {
+                                                                        spawnObj(arObjects.get(i), meshComponent);
+
+                                                                    }
+
+                                                                    renderer.addRenderElement(world);
+
+                                                                }
+
+                                                                @Override
+                                                                public void _e2_addElementsToGuiSetup(GuiSetup guiSetup, Activity activity) {
+                                                                    // addSpawnButtonToUI("Spawn Object", guiSetup);
+                                                                }
+
+                                                                @Override
+                                                                public void addObjectsTo(GL1Renderer renderer, World world, GLFactory objectFactory) {
+                                                                }
+
+                                                                private void spawnObj(MeshComponent mesh){
+                                                                    // Vec pos = camera.getGPSPositionVec();
+                                                                    Vec pos = getCamera().getGPSPositionVec();
+
+                                                                    Log.d("Placing tag", "Placing object at " + pos);
+                                                                    GeoObj x = new GeoObj(pos.y, pos.x, pos.z);
+
+                                                                    mesh.setPosition(new Vec(0,1,0));
+                                                                    x.setComp(mesh);
+                                                                    //CommandShowToast.show(myTargetActivity, "Object spawned" + x.getMySurroundGroup().getPosition());
+                                                                    world.add(x);
+                                                                }
+
+                                                                private void spawnObj(final GeoObj pos, MeshComponent mesh) {
+                                                                    GeoObj x = new GeoObj(pos);
+
+                                                                    mesh.setPosition(Vec.getNewRandomPosInXYPlane(new Vec(), 0.1f, 1f));
+                                                                    x.setComp(mesh);
+                                                                    //CommandShowToast.show(myTargetActivity, "Object spawned at " + x.getMySurroundGroup().getPosition());
+                                                                    world.add(x);
+                                                                }
+
+                                                            });
+                                                        }
+                                                    }
+                                                });
+                                                builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
+                                                    @Override
+                                                    public void onClick(DialogInterface dialog, int which) {
+                                                        dialog.dismiss();
+                                                    }
+                                                });
+                                                AlertDialog alert = builder.create();
+                                                alert.show();
+                                            }
+                                        }
+                                        else {
+
+                                            object1 = allObjectsMap.get(marker);
+                                            if(!object1.equals(null))
+                                            {
+                                                final Bitmap bitmap = decodeSampledBitmapFromString(object1.getImage(), 75, 75);
+                                                mMap.setInfoWindowAdapter(new MyInfoWindowAdapter(MainActivity.this, object1.getDescription(), bitmap, object1.getType(), String.valueOf(object1.getLon()), String.valueOf(object1.getLat())));
+                                                marker.showInfoWindow();
+                                                return true;
+                                            }
                                         }
 
                                         return false;
@@ -1951,109 +2203,8 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
                                 });
 
                             }
-                            dialog.dismiss();
+                            //dialog.dismiss();
                             searchDialog.dismiss();
-
-                            if(test)
-                            {
-                                final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-                                builder.setTitle("Clean the area");
-                                builder.setMessage("Do you want to clean area for points?");
-                                builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-                                    @Override
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)
-                                                != PackageManager.PERMISSION_GRANTED)
-                                        {
-                                            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
-                                                    Manifest.permission.CAMERA))
-                                            {
-
-                                            }
-                                            else {
-                                                ActivityCompat.requestPermissions(MainActivity.this,
-                                                        new String[]{Manifest.permission.CAMERA},
-                                                        MY_PERMISSIONS_REQUEST_CAMERA);
-                                            }
-                                        }
-                                        else
-                                        {
-
-                                            // Ako je omogucena kamera pokrece se AR sistem
-
-                                            ArActivity.startWithSetup(MainActivity.this, new DefaultARSetup() {
-
-                                                @Override
-                                                public void _b_addWorldsToRenderer(GL1Renderer renderer, GLFactory objectFactory, final GeoObj currentPosition) {
-
-                                                    final MeshComponent meshComponent = GLFactory.getInstance().newDiamond(null);
-
-                                                    meshComponent.setOnLongClickCommand(new Command() {
-                                                        @Override
-                                                        public boolean execute() {
-                                                            CommandShowToast.show(MainActivity.this, "Object picked!");
-
-                                                            // Podesiti da se objekat izgubi i prikazati osvajanje poena
-
-                                                            return true;
-                                                        }
-                                                    });
-
-                                                    for(int i = 0; i < arObjects.size(); i++)
-                                                    {
-                                                        spawnObj(arObjects.get(i), meshComponent);
-
-                                                    }
-
-                                                    renderer.addRenderElement(world);
-
-                                                }
-
-                                                @Override
-                                                public void _e2_addElementsToGuiSetup(GuiSetup guiSetup, Activity activity) {
-                                                    // addSpawnButtonToUI("Spawn Object", guiSetup);
-                                                }
-
-                                                @Override
-                                                public void addObjectsTo(GL1Renderer renderer, World world, GLFactory objectFactory) {
-                                                }
-
-                                                private void spawnObj(MeshComponent mesh){
-                                                    // Vec pos = camera.getGPSPositionVec();
-                                                    Vec pos = getCamera().getGPSPositionVec();
-
-                                                    Log.d("Placing tag", "Placing object at " + pos);
-                                                    GeoObj x = new GeoObj(pos.y, pos.x, pos.z);
-
-                                                    mesh.setPosition(new Vec(0,1,0));
-                                                    x.setComp(mesh);
-                                                    //CommandShowToast.show(myTargetActivity, "Object spawned" + x.getMySurroundGroup().getPosition());
-                                                    world.add(x);
-                                                }
-
-                                                private void spawnObj(final GeoObj pos, MeshComponent mesh) {
-                                                    GeoObj x = new GeoObj(pos);
-
-                                                    mesh.setPosition(Vec.getNewRandomPosInXYPlane(new Vec(), 0.1f, 1f));
-                                                    x.setComp(mesh);
-                                                    //CommandShowToast.show(myTargetActivity, "Object spawned at " + x.getMySurroundGroup().getPosition());
-                                                    world.add(x);
-                                                }
-
-                                            });
-                                        }
-                                    }
-                                });
-                                builder.setNegativeButton("No", new DialogInterface.OnClickListener() {
-                                    @Override
-                                    public void onClick(DialogInterface dialog, int which) {
-                                        dialog.dismiss();
-                                    }
-                                });
-                                AlertDialog alert = builder.create();
-                                alert.show();
-                            }
-
                         }
                         catch (Exception e)
                         {
@@ -2097,7 +2248,71 @@ public class MainActivity extends ActionBarActivity implements OnMapReadyCallbac
         @Override
         protected void onPostExecute(String aVoid) {
 
+        }
+    }
 
+    public class InputUsersPoints extends AsyncTask<String, Void, String> {
+
+        @Override
+        protected void onPreExecute() {
+
+        }
+
+        @Override
+        protected String doInBackground(String... strings) {
+
+            String urlAddress = "http://qosstamen.esy.es/Server/input_points.php";
+
+            final String id = strings[0];
+            final String points = strings[1];
+            final String lon = strings[2];
+            final String lat = strings[3];
+
+            try {
+
+                RequestQueue requestQueue = Volley.newRequestQueue(getApplicationContext());
+                StringRequest request = new StringRequest(StringRequest.Method.POST, urlAddress, new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Log.i("Input points response", response);
+
+                        new FindObjectsTask().execute(id, "radius", String.valueOf(50), String.valueOf(myPosition.longitude), String.valueOf(myPosition.latitude));
+                    }
+                }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Log.i("Error", error.toString());
+                    }
+                }) {
+                    @Override
+                    protected Map<String, String> getParams() throws AuthFailureError {
+                        HashMap<String, String> hashMap = new HashMap<String, String>();
+
+                        hashMap.put("id", id);
+                        hashMap.put("points", points);
+                        hashMap.put("lon", lon);
+                        hashMap.put("lat", lat);
+
+                        return hashMap;
+                    }
+                };
+
+                requestQueue.add(request);
+
+            } catch (Exception e) {
+
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onProgressUpdate(Void... values) {
+            super.onProgressUpdate(values);
+        }
+
+        @Override
+        protected void onPostExecute(String aVoid) {
 
         }
     }
